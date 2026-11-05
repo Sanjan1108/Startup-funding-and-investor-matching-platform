@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server'; import {pool,mongoDb} from '@/lib/db'; export async function GET(){try{await pool.query('SELECT 1');const db=await mongoDb();await db.command({ping:1});return NextResponse.json({mysql:'connected',mongodb:'connected'})}catch(e){return NextResponse.json({mysql:'check configuration',mongodb:'check configuration'},{status:503})}}
