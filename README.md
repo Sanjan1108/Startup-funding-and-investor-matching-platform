@@ -1,107 +1,138 @@
 # VentureLink — Startup Funding & Investor Matching Platform
 
-A Next.js web application for the DBMS Level 3 project. It uses **MySQL + MongoDB** (two database paradigms), with a weighted startup–investor matching workflow and a responsive web UI.
+VentureLink is a dual-paradigm full-stack web application designed for startup funding, weighted investor matching, and term sheet deal negotiations. 
+
+The application is architected into two clean, decoupled tiers:
+- **`frontend/`**: Next.js 14+ App Router, React, and TypeScript web client.
+- **`backend/`**: Node.js & Express REST API server with **MySQL** (relational) and **MongoDB** (NoSQL).
+
+---
+
+## Architecture Overview
+
+```
+startup_funding_full_project/
+├── backend/                  # Express REST API Server (Port 5000)
+│   ├── src/
+│   │   ├── lib/              # Database pool (MySQL & MongoDB), JWT auth, audit logging
+│   │   ├── middleware/       # requireAuth authentication middleware
+│   │   ├── routes/           # REST endpoints (auth, dashboard, match, negotiations, etc.)
+│   │   └── server.ts         # Express server entry point
+│   ├── database/             # SQL schemas (database.sql, triggers.sql, backups)
+│   ├── tests/                # Manual test plan & checklist
+│   ├── package.json
+│   └── .env.example
+│
+├── frontend/                 # Next.js 14+ Web Application (Port 3000)
+│   ├── app/                  # App Router pages (Founder & Investor Dashboards, Directories)
+│   ├── components/           # AppShell, DataPage generic CRUD interfaces
+│   ├── lib/auth.ts           # Token verification helper
+│   ├── next.config.mjs       # Automatic API reverse-proxy / rewrites to backend
+│   ├── package.json
+│   └── .env.example
+│
+├── package.json              # Root orchestration scripts
+└── README.md
+```
+
+---
 
 ## Features
 
-- Account registration and login with bcrypt password hashing and HTTP-only JWT cookie.
-- Role field for STARTUP, INVESTOR and ADMIN accounts.
-- Startup directory, investor directory, funding rounds and meeting records.
-- Investor preference settings (industry, preferred funding stage, min/max ticket size).
-- Weighted matching engine: baseline score + industry fit + stage fit + ticket-size fit; results are stored in MySQL and ranked in the UI.
-- Pitch-deck reference records stored in MySQL; pitch text and keyword arrays stored in MongoDB, with text/keyword search.
-- MongoDB activity log for login, record creation, matching runs and pitch-deck activity.
-- Dashboard counts and capital invested.
+- **Role-Tailored Dashboards**:
+  - **Founder Dashboard**: Capital raised vs target, funding round progress bars, deal negotiations, investor match cards.
+  - **Investor Portfolio Dashboard**: Capital deployed, portfolio distribution, active term sheet deal flow, investment criteria summary.
+  - **Interactive Perspective Switcher**: Switch views instantly between Founder, Investor, and Platform Overview.
+- **Weighted Matching Engine**:
+  - Baseline score + industry fit + stage fit + ticket-size fit.
+  - Automatically calculates and persists ranked compatibility scores in MySQL.
+- **Interactive Term Sheet Negotiations**:
+  - Multi-round counter-offers between startups and investors with equity % and implied valuation calculations.
+  - Deal acceptance executes **MySQL ACID Transactions** creating investment records.
+  - MongoDB stores unstructured message threads, events, and timestamped timelines.
+- **Pitch Deck Intelligence**:
+  - Reference records stored in MySQL; pitch text and extracted keywords stored in MongoDB with full-text/keyword search.
+- **Authentication & Security**:
+  - Bcrypt password hashing.
+  - Signed JSON Web Tokens (JWT) stored in HTTP-only cookies (`sf_session`).
 
-## Technology
+---
 
-- Frontend: Next.js 14 App Router, React, TypeScript, CSS.
-- Backend/API: Next.js Route Handlers.
-- Relational database: MySQL (`startup_funding_platform`).
-- NoSQL database: MongoDB (`startup_funding_nosql`).
+## Prerequisites
 
-## Requirements
+- **Node.js**: v18.17+ (v20+ recommended)
+- **MySQL**: 8.0+
+- **MongoDB**: Community Server (v6+) or MongoDB Atlas
 
-- Node.js 18.17+ (Node 20 LTS recommended)
-- MySQL 8+
-- MongoDB Community Server or MongoDB Atlas
+---
 
-## Setup
+## Quick Start (Running Both Tiers)
 
-1. Install MySQL and start the MySQL server.
-2. Open MySQL Command Line Client and run the database script:
-
-   ```sql
-   SOURCE /absolute/path/to/database.sql;
-   ```
-
-   Run it using the MySQL command-line client because the script includes a `prompt` client command for the custom prompt used in the demo. If using a GUI client, remove/comment out the `prompt mysql [startup_funding_platform]>` line first.
-3. Start MongoDB locally, or create a MongoDB Atlas database.
-4. Copy `.env.example` to `.env.local` and enter your actual MySQL password and MongoDB URI. Set a long random `JWT_SECRET`.
-5. In this project folder run:
-
+### 1. Database Setup
+1. Start MySQL and run the database schema and triggers:
    ```bash
-   npm install
-   npm run dev
+   mysql -u root -p < backend/database/database.sql
+   mysql -u root -p < backend/database/triggers.sql
    ```
-6. Open `http://localhost:3000`.
-7. Choose **Create an account**. Register as a Startup or Investor, then sign in. The sample SQL accounts have placeholder password hashes and are sample data only; create your own login using the registration screen.
+2. Start MongoDB locally (port 27017) or prepare your Atlas connection string.
 
-## First-time data entry
+### 2. Configure Environment Variables
+- **Backend**:
+  Copy `backend/.env.example` to `backend/.env` and enter your MySQL password, MongoDB URI, and a secure `JWT_SECRET`.
+- **Frontend**:
+  Copy `frontend/.env.example` to `frontend/.env.local`.
 
-- Add an industry row if you need an industry not in the sample list. Use its `industry_id` in the startup form.
-- Add startup profiles and investor profiles. For the investor profile, use the account that should own it.
-- Investors can set their preferences at **Investor preferences** after creating their investor profile.
-- Add funding rounds, investments and meetings using the corresponding IDs displayed in the database.
-- Add a pitch deck with a URL/reference and paste extracted pitch text into the text area. MySQL stores the deck record; MongoDB stores the text and searchable keywords.
-- Go to **Investor matches** and select **Run matching**.
+### 3. Install All Dependencies
+From the root folder, run:
+```bash
+npm run install:all
+```
+*(Or run `npm install` inside both `backend` and `frontend` folders)*
 
-## Database split and justification
+### 4. Start Both Servers Concurrently
+From the root folder, run:
+```bash
+npm run dev
+```
+- **Backend API**: Running on `http://localhost:5000`
+- **Frontend App**: Running on `http://localhost:3000`
 
-**MySQL** stores structured, relational and integrity-sensitive data: users, startups, industries, investors, preferences, funding rounds, match results, investments, meetings, follow-ups and pitch-deck references. These records require foreign keys, unique constraints, joins, transactions and aggregate reporting.
+---
 
-**MongoDB** stores flexible, text-heavy pitch-deck content and activity logs. Pitch text does not have a fixed structure and is searched by text/keywords; audit events can have different detail fields. This makes a document database appropriate for this portion of the project.
+## Running Tiers Separately
 
-## Important routes
+### Running the Backend Alone
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-- `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`
-- `/api/data?type=startups|investors|funding|meetings`
-- `/api/preferences`
-- `/api/match` (GET ranked matches, POST run matching)
-- `/api/pitch-decks` (GET/POST)
-- `/api/pitch-decks/search?q=term`
-- `/api/health` (database connectivity check)
+### Running the Frontend Alone
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## Security notes
+---
 
-- Passwords are hashed using bcrypt; never store plaintext passwords.
-- Database credentials are read from environment variables, not source code.
-- The session token is stored in an HTTP-only cookie.
-- For a production deployment, add CSRF protection, rate limiting, stricter role/ownership checks, HTTPS, and a managed secret store.
+## API Endpoints Reference (Backend)
 
-## Project demonstration checklist
-
-1. Register/login.
-2. Show dashboard metrics.
-3. Add or view startup and investor records.
-4. Configure investor preferences.
-5. Add funding round and meeting records.
-6. Run matching and explain the weighted score.
-7. Add a pitch deck, then search its text (MongoDB).
-8. Show MySQL tables/joins and MongoDB collections.
-
-## Team contribution
-
-Update this section with the actual division of work and each member's Git commits before submission. Both members should be able to explain the database design and application flow.
-
-
-## Complete submission materials
-- `docs/PROJECT_REPORT.md` — project report.
-- `docs/er_diagram.png` and `.dot` — ER diagram image/source.
-- `docs/architecture.png` and `.dot` — architecture image/source.
-- `docs/RELATIONAL_SCHEMA.md` — relational schema/data dictionary.
-- `docs/mongodb_setup.js` — MongoDB collections and indexes.
-- `tests/manual-test-cases.md` — test procedures and expected outcomes.
-- `docs/DEMO_SCRIPT.md` — presentation sequence.
-
-Before submission, run the tests locally and replace Pending with actual results/evidence. Add actual team member names and GitHub commit links. The project bundle cannot truthfully claim local execution or Git contributions that have not happened.
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/auth/register` | Register a new STARTUP or INVESTOR account |
+| `POST` | `/api/auth/login` | Authenticate user and issue `sf_session` cookie |
+| `POST` | `/api/auth/logout` | Clear session cookie |
+| `GET` | `/api/auth/me` | Return authenticated user details |
+| `GET` | `/api/dashboard?view=...` | Return metrics and lists for founder/investor dashboard |
+| `GET` / `POST` | `/api/data?type=...` | CRUD records (startups, investors, funding, investments, meetings) |
+| `GET` / `POST` | `/api/preferences` | Get or update investor investment criteria |
+| `GET` | `/api/match` | Fetch ranked investor/startup matches |
+| `POST` | `/api/match` | Execute the weighted matching engine algorithm |
+| `PATCH` | `/api/match/:matchId` | Accept or reject a match result |
+| `GET` / `POST` | `/api/negotiations` | List or initiate term sheet negotiations |
+| `GET` / `PATCH` | `/api/negotiations/:id` | View thread/history or submit counter-offer/accept/reject |
+| `GET` / `POST` | `/api/pitch-decks` | Store pitch deck metadata (MySQL) and text (MongoDB) |
+| `GET` | `/api/pitch-decks/search?q=...` | Full-text and keyword search across pitch decks in MongoDB |
+| `GET` | `/api/health` | Health check for MySQL and MongoDB connections |
